@@ -3,7 +3,7 @@ defmodule PerfqChatBackend.RoomChannel do
   alias PerfqChatBackend.Presence
   require Logger
 
-  def join("room:lobby", msg, socket) do
+  def join("room:"<>_, msg, socket) do
     send self, {:after_join, msg}
     {:ok, socket}
   end

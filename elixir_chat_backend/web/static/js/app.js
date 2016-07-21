@@ -58,7 +58,9 @@ let initiateChat = (username) => {
     return (`<p><a href='#'>[${user}]</a> ${body}</p>`)
   }
 
-  let chan = socket.channel("room:lobby", {})
+  let queryParams = location.search.substr(1)
+  let channelName = (queryParams == "") ? "room:lobby" : queryParams
+  let chan = socket.channel(channelName, {})
 
   let presences = {}
 

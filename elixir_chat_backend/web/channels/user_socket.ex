@@ -3,7 +3,7 @@ defmodule PerfqChatBackend.UserSocket do
 
   ## Channels
   # channel "room:*", PerfqChatBackend.RoomChannel
-  channel "room:lobby", PerfqChatBackend.RoomChannel
+  channel "room:*", PerfqChatBackend.RoomChannel
 
   ## Transports
   transport :websocket, Phoenix.Transports.WebSocket

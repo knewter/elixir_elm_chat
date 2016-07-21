@@ -21,13 +21,11 @@ type alias Model =
     , username : String
     , phxSocket : Maybe (Phoenix.Socket.Socket Msg)
     , phxPresences : PresenceState Chat.UserPresence
-    , channelName : Maybe String
     }
 
 
 type Msg
-    = JoinChannel
-    | SetChannel String
+    = JoinChannel String
     | PhoenixMsg (Phoenix.Socket.Msg Msg)
     | ReceiveChatMessage String JE.Value
     | SetUsername String
@@ -43,7 +41,6 @@ initialModel =
     , username = ""
     , phxSocket = Nothing
     , phxPresences = Dict.empty
-    , channelName = Nothing
     }
 
 
@@ -61,45 +58,37 @@ initPhxSocket username =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        JoinChannel ->
-            case model.channelName of
+        JoinChannel channelName ->
+            case model.phxSocket of
                 Nothing ->
                     model ! []
 
-                Just channelName ->
-                    case model.phxSocket of
-                        Nothing ->
-                            model ! []
+                Just modelPhxSocket ->
+                    let
+                        channel =
+                            Phoenix.Channel.init channelName
 
-                        Just modelPhxSocket ->
-                            let
-                                channel =
-                                    Phoenix.Channel.init channelName
+                        ( phxSocket, phxJoinCmd ) =
+                            Phoenix.Socket.join channel modelPhxSocket
 
-                                ( phxSocket, phxJoinCmd ) =
-                                    Phoenix.Socket.join channel modelPhxSocket
+                        phxSocket2 =
+                            Phoenix.Socket.on "new:msg" channelName (ReceiveChatMessage channelName) phxSocket
 
-                                phxSocket2 =
-                                    Phoenix.Socket.on "new:msg" channelName (ReceiveChatMessage channelName) phxSocket
+                        initialChatModel =
+                            Chat.initialModel
 
-                                initialChatModel =
-                                    Chat.initialModel
+                        newChat =
+                            { initialChatModel | topic = channelName }
 
-                                newChat =
-                                    { initialChatModel | topic = channelName }
-
-                                newChats =
-                                    model.chats
-                                        |> Dict.insert channelName newChat
-                            in
-                                { model
-                                    | phxSocket = Just phxSocket2
-                                    , chats = newChats
-                                }
-                                    ! [ Cmd.map PhoenixMsg phxJoinCmd ]
-
-        SetChannel channelName ->
-            { model | channelName = (Just channelName) } ! []
+                        newChats =
+                            model.chats
+                                |> Dict.insert channelName newChat
+                    in
+                        { model
+                            | phxSocket = Just phxSocket2
+                            , chats = newChats
+                        }
+                            ! [ Cmd.map PhoenixMsg phxJoinCmd ]
 
         SetUsername username ->
             { model | username = username } ! []
@@ -208,12 +197,10 @@ viewMessage message =
 
 lobbyManagementView : Model -> Html Msg
 lobbyManagementView model =
-    case model.channelName of
-        Nothing ->
-            button [ onClick (SetChannel "room:lobby") ] [ text "Set channel to lobby" ]
-
-        Just channelName ->
-            button [ onClick JoinChannel ] [ text ("Join channel " ++ channelName) ]
+    div []
+        [ button [ onClick (JoinChannel "room:lobby") ] [ text "Join room:lobby" ]
+        , button [ onClick (JoinChannel "room:lobby2") ] [ text "Join room:lobby2" ]
+        ]
 
 
 chatViewListItem : ( String, Chat.Model ) -> Html Msg
