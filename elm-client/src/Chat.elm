@@ -3,6 +3,8 @@ module Chat exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (value, placeholder, class)
 import Html.Events exposing (onInput, onClick, onSubmit)
+import Json.Encode as JE
+import Json.Decode as JD exposing ((:=))
 
 
 -- Our model will track a list of messages and the text for our new message to
@@ -38,6 +40,11 @@ type alias Model =
 type Msg
     = SetNewMessage String
     | SendMessage
+    | ReceiveMessage JE.Value
+
+
+type OutMsg
+    = Say String
 
 
 initialModel : Model
@@ -50,20 +57,22 @@ initialModel =
     }
 
 
-
--- FIXME This is awful because the root has to know about our messages, but in the other way we'd have to know about the root's API too, so meh figure it out...
-
-
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( ( Model, Cmd Msg ), Maybe OutMsg )
 update msg model =
     case msg of
         SetNewMessage string ->
-            { model | newMessage = string } ! []
+            ( { model | newMessage = string } ! [], Nothing )
 
         SendMessage ->
-            -- Ask the root to send our message?
-            -- TKTKTK The root's going to intercept this message.
-            model ! []
+            ( { model | newMessage = "" } ! [], Just (Say model.newMessage) )
+
+        ReceiveMessage raw ->
+            case JD.decodeValue chatMessageDecoder raw of
+                Ok chatMessage ->
+                    ( { model | messages = model.messages ++ [ chatMessage ] } ! [], Nothing )
+
+                Err error ->
+                    ( model ! [], Nothing )
 
 
 viewMessage : ChatMessage -> Html Msg
@@ -112,3 +121,14 @@ view model =
 init : String -> ( Model, Cmd Msg )
 init topic =
     ( { initialModel | topic = topic }, Cmd.none )
+
+
+chatMessageDecoder : JD.Decoder ChatMessage
+chatMessageDecoder =
+    JD.object2 ChatMessage
+        (JD.oneOf
+            [ ("user" := JD.string)
+            , JD.succeed "anonymous"
+            ]
+        )
+        ("body" := JD.string)
